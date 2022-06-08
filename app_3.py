@@ -97,7 +97,12 @@ fig1 = fig_hist(test_df_predict,
 fig2 = fig_countplot(test_df_predict,
                      test_df_predict.columns[0],
                      "Countplot for the categorical features",
-                     test_df_predict['y_pred_binary'])
+                     'y_pred_binary')
+
+fig3 = fig_countplot(test_df_predict,
+                     test_df_predict.columns[0],
+                     "Countplot for the categorical features",
+                     'y_pred_binary')
 
 # application layout
 app.layout = html.Div(
@@ -127,12 +132,12 @@ app.layout = html.Div(
                                 create_dcc(test_df_predict[most_important_num_feat].columns,
                                            "value_histo",
                                            test_df_predict[most_important_num_feat].columns[0])],
-                                className="four columns")],
+                                className="twelve columns")],
                             className="row"),
                         dcc.Graph(id="histogram",
                                   figure=fig1,
                                   style=style_plot)])],
-                    className="seven columns pretty_container")]),
+                    className="one-third column pretty_container")]),
             html.Div(children=[
                 html.Div(children=[
                     html.Div(children=[
@@ -144,12 +149,12 @@ app.layout = html.Div(
                                 create_dcc(test_df_predict[most_important_cat_feat].columns,
                                            "value_bar",
                                            test_df_predict[most_important_cat_feat].columns[0])],
-                                className="ten columns")],
+                                className="twelve columns")],
                             className="row"),
-                        dcc.Graph(id="bar chart",
+                        dcc.Graph(id="bar_chart",
                                   figure=fig2,
                                   style=style_plot)])],
-                    className="five columns pretty_container")])
+                    className="one-third column pretty_container")])
         ]
         )
     ]
@@ -168,14 +173,14 @@ def plot_histogram(x_data):
     return figure
 
 
-@app.callback(Output("bar chart", "figure"), [Input("value_bar", "value")])
+@app.callback(Output("bar_chart", "figure"), [Input("value_bar", "value")])
 def plot_countplot(x_data):
     figure = fig_countplot(test_df_predict,
                            x_data,
                            "Countplot",
-                           test_df_predict['y_pred_binary'])
+                           'y_pred_binary')
     return figure
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True, port=1100)
+    app.run_server(debug=True, port=1500)

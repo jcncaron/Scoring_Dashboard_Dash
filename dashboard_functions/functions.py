@@ -49,7 +49,7 @@ def create_slider(name, mini, maxi, marks):
 def create_radio_shape(name):
     """
     Create a html radio component to choose the way to plot the distribution
-    4 possibles modes: violin plot, box plot, histogram, rug plot
+    3 possibles modes: violin plot, box plot, histogram
 
     Arguments:
     - name : id name of the radio component
@@ -60,10 +60,8 @@ def create_radio_shape(name):
     return dcc.RadioItems(
         id=name,
         options=[
-            {"label": "violin", "value": "violin"},
             {"label": "box", "value": "box"},
             {"label": "hist", "value": "histogram"},
-            {"label": "rug", "value": "rug"},
         ],
         value="histogram",
         className="pretty_container",

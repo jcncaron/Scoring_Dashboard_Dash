@@ -322,7 +322,7 @@ app.layout = html.Div(
                                             "Choose a row from the Test set to explain"
                                         )
                                     ],
-                                    className="two-thids column",
+                                    className="two-thirds column",
                                 ),
                                 html.Div(
                                     [
