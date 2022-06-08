@@ -32,11 +32,23 @@ def fig_scatter(
     return fig
 
 
-def fig_hist(df, df_x, title):
+def fig_hist(df, df_x, title, color, marginal):
     """
-    Histogram plot for the first feature of the dataframe
+    Histogram plot for the continuous features of the dataframe
     """
-    fig = px.histogram(df, x=df_x, title=title)
+    fig = px.histogram(df, x=df_x, title=title, color=color, marginal=marginal)
+    fig = fig_update_layout(fig)
+    return fig
+
+
+def fig_countplot(df, df_x, title, color):
+    """
+    Count plot for the categorical features of the dataframe
+    """
+    df = df.groupby(by=[df_x, color]).size().reset_index(name="counts")
+    df[df_x] = df[df_x].astype(object)
+    df[color] = df[color].astype(object)
+    fig = px.bar(df, x=df_x, y='counts', title=title, color=color, barmode="group", text_auto='.3s')
     fig = fig_update_layout(fig)
     return fig
 
