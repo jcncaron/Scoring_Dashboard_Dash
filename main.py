@@ -27,7 +27,7 @@ from dashboard_functions.figures import (
 app = dash.Dash(__name__)
 
 # load the dataframe
-test_df = pd.read_csv("C:/Users/33624/PycharmProjects/Scoring dashboard with dash/data/test_df.csv")
+test_df = pd.read_csv("test_df_1000.csv")
 
 # remove special characters in test_df feature names
 test_df.columns = test_df.columns.str.replace(':', '')
@@ -39,7 +39,7 @@ test_df.columns = test_df.columns.str.replace('}', '')
 test_df.columns = test_df.columns.str.replace('"', '')
 
 # Load machine learning model
-model = joblib.load("C:/Users/33624/model_lgbm_1.joblib")
+model = joblib.load("model_lgbm_1.joblib")
 
 # Predict_proba and predict class for X_test
 X_test = test_df.drop(['index', 'SK_ID_CURR'], 1)
@@ -124,8 +124,8 @@ fig5 = fig_scatter_dependence(temp_df,
                               color="EXT_SOURCE_2")
 
 # Define local bar plot importance feature
-fig6 = fig_force_plot(feature_importance_single_explanation_value[0:10],
-                      sum_list[0:10],
+fig6 = fig_force_plot(feature_importance_single_explanation_value,
+                      sum_list,
                       color,
                       title_single)
 
@@ -341,18 +341,18 @@ def plot_dependence_shap(id_shap_feature, id_feature1, id_feature2):
 @app.callback(Output("single-explanation-plot", "figure"),
              [Input("explanation", "value")])
 def plot_single_explanation(explanation):
-    (feature_importance_single_explanation_value[0:10],
-     sum_list[0:10],
+    (feature_importance_single_explanation_value,
+     sum_list,
      color,
      title_single) \
         = shap_single_explanation(explainer, X_test, explanation, model, base_value)
     figure = fig_force_plot(
-        feature_importance_single_explanation_value[0:10],
-        sum_list[0:10],
+        feature_importance_single_explanation_value,
+        sum_list,
         color,
         title_single)
     return figure
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True, port=2850)
+    app.run_server(debug=True, port=2900)
