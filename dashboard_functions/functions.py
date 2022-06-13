@@ -151,9 +151,9 @@ def shap_single_explanation(X_test, explanation, base_value, shap_values, temp_d
         [shap_values[0][explanation]],
         columns=X_test.columns,
     )
-    sorted_importance = dataframe_single_explanation.iloc[0, :].sort_values(
-        ascending=False
-    )
+    sorted_importance = dataframe_single_explanation.iloc[0, :]
+    sorted_importance = sorted_importance[sorted_importance.abs().sort_values(ascending=False).index.tolist()]
+
     feature_importance_single_explanation_name = (
         sorted_importance.index.tolist()
     )
