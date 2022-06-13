@@ -27,7 +27,7 @@ from dashboard_functions.figures import (
 app = dash.Dash(__name__)
 
 # load the dataframe
-test_df = pd.read_csv("test_df_1000.csv")
+test_df = pd.read_csv("data/test_df_1000.csv")
 
 # remove special characters in test_df feature names
 test_df.columns = test_df.columns.str.replace(':', '')
@@ -39,7 +39,7 @@ test_df.columns = test_df.columns.str.replace('}', '')
 test_df.columns = test_df.columns.str.replace('"', '')
 
 # Load machine learning model
-model = joblib.load("model_lgbm_1.joblib")
+model = joblib.load("data/model_lgbm_1.joblib")
 
 # Predict_proba and predict class for X_test
 X_test = test_df.drop(['index', 'SK_ID_CURR'], 1)
