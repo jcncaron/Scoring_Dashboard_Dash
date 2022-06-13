@@ -4,7 +4,9 @@ import joblib
 from dash.dependencies import Input, Output
 import pandas as pd
 import numpy as np
+import gunicorn
 import lightgbm
+from whitenoise import WhiteNoise   # for serving static files on Heroku
 
 from dashboard_functions.functions import (
     create_dcc,
@@ -25,6 +27,12 @@ from dashboard_functions.figures import (
 
 # initialize the app
 app = dash.Dash(__name__)
+
+# Reference the underlying flask app (Used by gunicorn webserver in Heroku production deployment)
+server = app.server
+
+# Enable Whitenoise for serving static files from Heroku (the /static folder is seen as root by Heroku)
+server.wsgi_app = WhiteNoise(server.wsgi_app, root='static/')
 
 # load the dataframe
 test_df = pd.read_csv("data/test_df_1000.csv")
@@ -354,5 +362,6 @@ def plot_single_explanation(explanation):
     return figure
 
 
+# Run flask app
 if __name__ == "__main__":
-    app.run_server(debug=True, port=2900)
+    app.run_server(debug=False, host='0.0.0.0', port=8050)
