@@ -1,5 +1,8 @@
 from dash import Dash, dcc, html
 from dash.dependencies import Input, Output
+import gunicorn # whilst your local machine's webserver doesn't need this,
+# Heroku's linux webserver (i.e. dyno) does. I.e. This is your HTTP server
+from whitenoise import WhiteNoise  # for serving static files on Heroku
 import lightgbm
 
 from dashboard_functions.functions import (
@@ -21,6 +24,10 @@ from dashboard_functions.figures import (
 
 # initialize the app
 app = Dash(__name__)
+# Reference the underlying flask app (Used by gunicorn webserver in Heroku production deployment)
+server = app.server
+# Enable Whitenoise for serving static files from Heroku (the /static folder is seen as root by Heroku)
+server.wsgi_app = WhiteNoise(server.wsgi_app, root='static/')
 
 # Prepare dataframes and return machine learning model
 X_test, test_df_predict, model, customer_ids = prepare_data()
@@ -111,7 +118,6 @@ fig7 = fig_score(customer_ids[0],
 
 # Define gauge score for customers
 fig8 = fig_gauge(customer_ids[0], test_df_predict)
-
 
 # application layout
 app.layout = html.Div(
@@ -358,4 +364,4 @@ def plot_dependence_shap(id_feature1, id_feature2, customer):
 
 # Run app
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run_server(debug=False)

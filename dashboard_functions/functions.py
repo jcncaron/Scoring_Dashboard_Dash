@@ -293,6 +293,3 @@ def create_explanations(ml_model, X_test, df):
         color,
         list_shap_features,
     )
-
-
-
