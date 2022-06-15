@@ -1,19 +1,16 @@
 from dash import Dash, dcc, html
 from dash.dependencies import Input, Output
-import dash_daq
 import lightgbm
 
 from dashboard_functions.functions import (
     create_dcc,
-    create_slider,
     create_radio_shape,
     shap_single_explanation,
     create_explanations,
-    prepare_data, return_score_from_id,
+    prepare_data
 )
 from dashboard_functions.figures import (
     fig_scatter,
-    fig_hist,
     fig_bar_shap,
     fig_force_plot,
     fig_countplot,
@@ -30,6 +27,7 @@ X_test, test_df_predict, model, customer_ids = prepare_data()
 
 # Create explanations from model and X_test
 (
+    shap_values,
     base_value,
     explainer,
     feature_importance_name,
@@ -69,19 +67,22 @@ style_plot = {
 # Define overlaid histogram figure
 fig1 = fig_overlaid_hist(test_df_predict,
                          test_df_predict.columns[0],
-                         "Histogram for the continuous features")
+                         "Histogram for the continuous features",
+                         customer_ids[0])
 
 # Define overlaid histogram figure
 fig2 = fig_countplot(test_df_predict,
                      test_df_predict.columns[0],
                      "Countplot for the categorical features",
-                     'y_pred_binary')
+                     'y_pred_binary',
+                     customer_ids[0])
 
 # Define scatter plot figure
 fig3 = fig_scatter(test_df_predict,
                    test_df_predict.columns[0],
                    test_df_predict.columns[0],
-                   "Scatter plot for the continuous and categorical features",
+                   "Scatter plot for the continuous features",
+                   customer_ids[0],
                    marginal_x='histogram',
                    marginal_y='histogram',
                    color='y_pred_binary')
@@ -93,9 +94,10 @@ fig4 = fig_bar_shap(feature_importance_name[0:20],
 # Define shap dependence plot figure
 fig5 = fig_scatter_dependence(temp_df,
                               "EXT_SOURCE_2",
-                              "EXT_SOURCE_2_shap",
-                              "SHAP dependence plot",
-                              color="EXT_SOURCE_2")
+                              "EXT_SOURCE_3",
+                              "Scatter plot",
+                              customer_ids[0],
+                              color="y_pred_proba")
 
 # Define local bar plot importance feature
 fig6 = fig_force_plot(feature_importance_single_explanation_value[0:15],
@@ -108,7 +110,7 @@ fig7 = fig_score(customer_ids[0],
                  test_df_predict)
 
 # Define gauge score for customers
-fig8 = fig_gauge(test_df_predict, customer_ids[0])
+fig8 = fig_gauge(customer_ids[0], test_df_predict)
 
 
 # application layout
@@ -130,7 +132,7 @@ app.layout = html.Div(
         ###############################################################################################
         ######################### Local feature importance / SHAP values #############################
         html.Div(children=[
-            html.H4("Scoring and local feature importance using SHAP values",
+            html.H4("Scoring & local feature importance using SHAP values",
                     style={"textAlign": "center"}),
             html.Div(children=[
                 html.Div(children=[
@@ -142,24 +144,56 @@ app.layout = html.Div(
                                  value=customer_ids[0])],
                     className="two-thirds column")],
                 className="row pretty_container"),
+            ######################### Predict proba score gauge ##########################
+            html.Div(children=[
+                dcc.Graph(id="predict-proba-gauge",
+                          figure=fig8,
+                          style=style_plot)],
+                className="five columns pretty_container"),
             ######################### Feature importance plot #############################
             html.Div(children=[
                 dcc.Graph(id="single-explanation-plot",
                           figure=fig6,
                           style=style_plot)],
-                className="nine columns pretty_container"),
-            ######################### Predict proba score #############################
-            html.Div(children=[
-                dcc.Graph(id="predict-proba-score",
-                          figure=fig7,
-                          style=style_plot)],
-                className="three columns pretty_container")
+                className="seven columns pretty_container"),
         ]
         ),
+        ###############################################################################################
+        ######################### Global feature importance / SHAP values #############################
+        html.Div(children=[
+            html.H4("Scatter plot & Global feature importance using SHAP values",
+                    style={"textAlign": "center"}),
+            ######################### Feature importance plot #############################
+            html.Div(children=[
+                dcc.Graph(id="feature-importance-plot",
+                          figure=fig4,
+                          style=style_plot)],
+                className="one-half column pretty_container"),
+            ######################### Feature scatter plot #############################
+            html.Div(children=[
+                html.Div(children=[
+                    html.Div(children=[
+                        create_dcc(most_important_features[0:20],
+                                   "id-feature1",
+                                   most_important_features[0])],
+                        className="six columns"),
+                    html.Div(children=[
+                        create_dcc(most_important_features[0:20],
+                                   "id-feature2",
+                                   most_important_features[1])],
+                        className="six columns")],
+                    className="row pretty_container"),
+                html.Div(children=[
+                    dcc.Graph(id="dependence-plot",
+                              figure=fig5,
+                              style=style_plot)],
+                    className="row")],
+                className="one-half column pretty_container"),
+        ]),
         ##################################################################################################
         ############################# 1D and 2D feature visualization ####################################
         html.Div(children=[
-            html.H4("Basic visualizations for the features",
+            html.H4("Features distributions",
                     style={"textAlign": "center"}),
             html.Div(children=[
                 ########################### Histogram Plot #####################################
@@ -214,7 +248,7 @@ app.layout = html.Div(
                                     create_dcc(
                                         test_df_predict[most_important_num_feat].columns,
                                         "value_y_scatter",
-                                        test_df_predict[most_important_num_feat].columns[0])],
+                                        test_df_predict[most_important_num_feat].columns[1])],
                                     className="row")],
                                 className="one-half column"),
                             html.Div(children=[
@@ -234,60 +268,16 @@ app.layout = html.Div(
             )
         ]
         ),
-        ###############################################################################################
-        ######################### Global feature importance / SHAP values #############################
-        html.Div(children=[
-            html.H4("Global feature importance using SHAP values",
-                    style={"textAlign": "center"}),
-            ######################### Feature importance plot #############################
-            html.Div(children=[
-                dcc.Graph(id="feature-importance-plot",
-                          figure=fig4,
-                          style=style_plot)],
-                className="one-half column pretty_container"),
-            ######################### Feature dependance plot #############################
-            html.Div(children=[
-                html.Div(children=[
-                    html.Div(children=[
-                        create_dcc(list_shap_features[0:20],
-                                   "id-shap-feature",
-                                   list_shap_features[0])],
-                        className="four columns"),
-                    html.Div(children=[
-                        create_dcc(most_important_features[0:20],
-                                   "id-feature1",
-                                   most_important_features[0])],
-                        className="four columns"),
-                    html.Div(children=[
-                        create_dcc(most_important_features[0:20],
-                                   "id-feature2",
-                                   most_important_features[0])],
-                        className="four columns")],
-                    className="row pretty_container"),
-                html.Div(children=[
-                    dcc.Graph(id="dependence-plot",
-                              figure=fig5,
-                              style=style_plot)],
-                    className="row")],
-                className="one-half column pretty_container"),
-            ######################### Predict proba score gauge ##########################
-            html.Div(children=[
-                dcc.Graph(id="predict-proba-gauge",
-                          figure=fig8,
-                          style=style_plot)],
-                className="five columns pretty_container"),
-        ]),
-
     ]
     )
     ]
 )
 
 
-@app.callback(Output('predict-proba-gauge', 'value'), Input('customer', 'value'))
-def fig_gauge(customer_id):
-    value = return_score_from_id(customer_id, test_df_predict)
-    return value
+@app.callback(Output('predict-proba-gauge', 'figure'), Input('customer', 'value'))
+def plot_fig_gauge(customer_id):
+    figure = fig_gauge(customer_id, test_df_predict)
+    return figure
 
 
 @app.callback(Output("single-explanation-plot", "figure"),
@@ -298,7 +288,7 @@ def plot_single_explanation(customer_id):
         sum_list,
         color,
         title_single
-    ) = shap_single_explanation(explainer, X_test, customer_id, test_df_predict, model, base_value)
+    ) = shap_single_explanation(X_test, customer_id, test_df_predict, base_value, shap_values, model)
     figure = fig_force_plot(
         feature_importance_single_explanation_value[0:15],
         sum_list[0:15],
@@ -307,29 +297,26 @@ def plot_single_explanation(customer_id):
     return figure
 
 
-@app.callback(Output("predict-proba-score", "figure"),
-              [Input("customer", "value")])
-def plot_predict_proba_score(customer_id):
-    figure = fig_score(
-        customer_id,
-        test_df_predict)
-    return figure
-
-
-@app.callback(Output("histogram", "figure"), [Input("value_histo", "value")])
-def plot_histogram(x_data):
+@app.callback(Output("histogram", "figure"),
+              [Input("value_histo", "value"),
+               Input("customer", "value")])
+def plot_histogram(x_data, customer):
     figure = fig_overlaid_hist(test_df_predict,
                                x_data,
-                               'Histogram')
+                               'Histogram',
+                               customer)
     return figure
 
 
-@app.callback(Output("bar_chart", "figure"), [Input("value_bar", "value")])
-def plot_countplot(x_data):
+@app.callback(Output("bar_chart", "figure"),
+              [Input("value_bar", "value"),
+               Input("customer", "value")])
+def plot_countplot(x_data, customer):
     figure = fig_countplot(test_df_predict,
                            x_data,
                            "Countplot",
-                           'y_pred_binary')
+                           'y_pred_binary',
+                           customer)
     return figure
 
 
@@ -338,13 +325,15 @@ def plot_countplot(x_data):
     [Input("value_x_scatter", "value"),
      Input("value_y_scatter", "value"),
      Input("radio_value_x_scatter", "value"),
-     Input("radio_value_y_scatter", "value")])
-def plot_scatter(x_data, y_data, x_radio, y_radio):
+     Input("radio_value_y_scatter", "value"),
+     Input("customer", "value")])
+def plot_scatter(x_data, y_data, x_radio, y_radio, customer):
     figure = fig_scatter(
         test_df_predict,
         x_data,
         y_data,
         "Scatter plot",
+        customer,
         marginal_x=x_radio,
         marginal_y=y_radio,
         color='y_pred_binary')
@@ -353,16 +342,17 @@ def plot_scatter(x_data, y_data, x_radio, y_radio):
 
 @app.callback(
     Output("dependence-plot", "figure"),
-    [Input("id-shap-feature", "value"),
-     Input("id-feature1", "value"),
-     Input("id-feature2", "value")])
-def plot_dependence_shap(id_shap_feature, id_feature1, id_feature2):
+    [Input("id-feature1", "value"),
+     Input("id-feature2", "value"),
+     Input("customer", "value")])
+def plot_dependence_shap(id_feature1, id_feature2, customer):
     figure = fig_scatter_dependence(
         temp_df,
         id_feature1,
-        id_shap_feature,
-        "SHAP dependence plot",
-        color=id_feature2)
+        id_feature2,
+        "Scatter plot",
+        customer,
+        color='y_pred_proba')
     return figure
 
 

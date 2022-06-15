@@ -61,29 +61,6 @@ def create_dcc(possible_values, name, default_value):
     )
 
 
-def create_slider(name, mini, maxi, marks):
-    """
-    Create an html slider
-
-    Arguments:
-    - name : id name of the slider component
-    - mini : minimum value
-    - maxi : maximum value
-    - marks : marks for each value ; example {0:"None", 1:"Output"}
-
-    Returns:
-    - slider component
-    """
-    return dcc.Slider(
-        id=name,
-        min=mini,
-        max=maxi,
-        marks=marks,
-        value=0,
-        className="pretty_container",
-    )
-
-
 def create_radio_shape(name):
     """
     Create a html radio component to choose the way to plot the distribution
@@ -101,12 +78,12 @@ def create_radio_shape(name):
             {"label": "box", "value": "box"},
             {"label": "hist", "value": "histogram"},
         ],
-        value="histogram",
+        value="box",
         className="pretty_container",
     )
 
 
-def return_cust_index_from_id(customer_id, df):
+def return_cust_index_from_id_v2(customer_id, df):
     """
         Return the customer index in the dataframe from the customer id 'SK_ID_CURR
         & the 1 row dataframe corresponding to the customer_id
@@ -119,17 +96,12 @@ def return_cust_index_from_id(customer_id, df):
         - customer_id
         - 1 row dataframe
         """
-    # Load the dictionary with indexes and SK_ID_CURR of test_df
-    my_dict = np.load('data/dict_idx_SK_ID_CURR.npy', allow_pickle='TRUE').item()
-    # Create lists of keys and values of my_dict
-    my_dict_keys = list(my_dict.keys())
-    my_dict_values = list(my_dict.values())
-    # Save customer index
-    cust_index = my_dict_keys[my_dict_values.index(customer_id)]
-    # Create the one row dataframe of index cust_index
-    one_row_df = pd.DataFrame(df.iloc[cust_index, :]).T
-    # Change 'SK_ID_CURR' feature into object dtype
-    one_row_df['SK_ID_CURR'] = one_row_df['SK_ID_CURR'].astype(object)
+    # Save column index for column 'index'
+    index_idx = df.columns.get_loc('index')
+    # Create a dataframe with only 1 row, corresponding to customer_id
+    one_row_df = df.loc[df['SK_ID_CURR'] == customer_id]
+    # Save the customer index corresponding to the customer id
+    cust_index = one_row_df.iloc[0, index_idx]
 
     return cust_index, one_row_df
 
@@ -145,7 +117,7 @@ def return_score_from_id(customer_id, df):
         Returns:
         - score
         """
-    cust_index, one_row_df = return_cust_index_from_id(customer_id, df)
+    cust_index, one_row_df = return_cust_index_from_id_v2(customer_id, df)
     score = df['y_pred_proba'][cust_index]
 
     return score
@@ -230,7 +202,7 @@ def shap_single_explanation(X_test, customer_id, df, base_value, shap_values, ml
     - title_single: title of shap force plot
 
     """
-    explanation, one_row_df = return_cust_index_from_id(customer_id, df)
+    explanation, one_row_df = return_cust_index_from_id_v2(customer_id, df)
 
     dataframe_single_explanation = pd.DataFrame(
         [shap_values[0][explanation]],
@@ -309,6 +281,7 @@ def create_explanations(ml_model, X_test, df):
     ) = shap_single_explanation(X_test, 100001, df, base_value, shap_values, ml_model)
 
     return (
+        shap_values,
         base_value,
         explainer,
         feature_importance_name,
