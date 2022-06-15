@@ -1,5 +1,6 @@
 import plotly.express as px
 import plotly.graph_objects as go
+from dashboard_functions.functions import return_cust_index_from_id, return_score_from_id
 
 
 def fig_update_layout(fig):
@@ -67,9 +68,11 @@ def fig_overlaid_hist(df, df_x, title):
     name_x1 = 'y_pred = 1'
     fig = go.Figure()
     fig.add_trace(go.Histogram(x=x0,
-                               name=name_x0))
+                               name=name_x0,
+                               nbinsx=30))
     fig.add_trace(go.Histogram(x=x1,
-                               name=name_x1))
+                               name=name_x1,
+                               nbinsx=30))
     fig.update_traces(opacity=0.6)
     fig.update_layout(
         barmode='overlay',
@@ -77,6 +80,40 @@ def fig_overlaid_hist(df, df_x, title):
         xaxis_title_text=df_x,  # xaxis label
         yaxis_title_text='Count',  # yaxis label
     )
+    return fig
+
+
+def fig_gauge(customer_id, df):
+    score = return_score_from_id(customer_id, df)
+    fig = go.Figure(go.Indicator(
+        mode="gauge + number + delta",
+        value=score,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        title={'text': "Predict_proba Score",
+               'font': {'size': 40}},
+        delta={'reference': 0.09,
+               'increasing': {'color': "red"},
+               'decreasing': {'color': "green"}, },
+        gauge={
+            'axis': {'range': [0, 1],
+                     'dtick': 0.05,
+                     'tickwidth': 2,
+                     'tickcolor': "black",
+                     'tickfont': {'size': 25},
+                     'ticklabelstep': 2},
+            'bar': {'color': "black"},
+            'bgcolor': "white",
+            'borderwidth': 2,
+            'bordercolor': "black",
+            'steps': [
+                {'range': [0, 0.09], 'color': '#2ca02c'},
+                {'range': [0.09, 1], 'color': '#d62728'}],
+            'threshold': {
+                'line': {'color': "red", 'width': 2},
+                'thickness': 1,
+                'value': 0.09}}))
+    fig.update_layout(paper_bgcolor="white", font={'color': "black", 'family': "Arial"})
+    fig = fig_update_layout(fig)
     return fig
 
 
@@ -127,5 +164,44 @@ def fig_force_plot(
                 orientation="h",
                 marker_color=color)],
         layout={"title": title_single})
+    fig.update_layout(title={'text': title_single,
+                             'x': 0.5,
+                             'xanchor': 'center'})
     fig = fig_update_layout(fig)
+    return fig
+
+
+def fig_score(customer_id, df):
+    """
+    Bar plot to display predict_proba score in comparison of predict threshold
+
+    Arguments:
+    - customer_id : SK_ID_CURR value (int)
+    - df : dataframe
+    """
+    # Save cust_index and one_row_df
+    cust_index, one_row_df = return_cust_index_from_id(customer_id, df)
+    fig = px.bar(one_row_df,
+                 x='SK_ID_CURR',
+                 y='y_pred_proba',
+                 text_auto=True)
+    # Display predict threshold
+    fig.add_hline(y=0.09)
+    fig.update_layout(title={'text': "Score",
+                             'x': 0.5,
+                             'xanchor': 'center'},
+                      xaxis_title=f'Customer n°{customer_id}',
+                      yaxis_range=[0, 1],
+                      autosize=False,
+                      width=300,
+                      height=500)
+    fig.update_xaxes(showticklabels=False)
+
+    if df['y_pred_proba'][cust_index] < 0.09:
+        bar_color = 'green'
+    else:
+        bar_color = 'red'
+
+    fig.update_traces(marker_color=bar_color)
+
     return fig

@@ -1,7 +1,45 @@
 import pandas as pd
 import numpy as np
+import joblib
 from dash import dcc
 import shap
+
+
+# function to prepare dataframe test_df_predict and X_test
+def prepare_data():
+    """
+        Create X_test and test_df_predict
+    """
+    # load the dataframe
+    test_df = pd.read_csv("data/test_df_1000.csv")
+
+    # remove special characters in test_df feature names
+    test_df.columns = test_df.columns.str.replace(':', '')
+    test_df.columns = test_df.columns.str.replace(',', '')
+    test_df.columns = test_df.columns.str.replace(']', '')
+    test_df.columns = test_df.columns.str.replace('[', '')
+    test_df.columns = test_df.columns.str.replace('{', '')
+    test_df.columns = test_df.columns.str.replace('}', '')
+    test_df.columns = test_df.columns.str.replace('"', '')
+
+    # Load machine learning model
+    model = joblib.load("data/model_lgbm_1.joblib")
+
+    # Predict_proba and predict class for X_test
+    X_test = test_df.drop(['index', 'SK_ID_CURR'], 1)
+    # Predict proba
+    y_pred_proba = np.round(model.predict_proba(X_test)[:, 1], 3)
+    # Predict class with a threshold = 0.09
+    y_pred_binary = (model.predict_proba(X_test)[:, 1] >= 0.09).astype(int)
+
+    # Add predict_proba and predict_class into test_df
+    test_df_predict = test_df
+    test_df_predict['y_pred_proba'] = y_pred_proba
+    test_df_predict['y_pred_binary'] = y_pred_binary
+
+    customer_ids = test_df_predict['SK_ID_CURR'].values.tolist()
+
+    return X_test, test_df_predict, model, customer_ids
 
 
 def create_dcc(possible_values, name, default_value):
@@ -68,6 +106,51 @@ def create_radio_shape(name):
     )
 
 
+def return_cust_index_from_id(customer_id, df):
+    """
+        Return the customer index in the dataframe from the customer id 'SK_ID_CURR
+        & the 1 row dataframe corresponding to the customer_id
+
+        Arguments:
+        - customer_id : SK_ID_CURR value (int)
+        - df : dataframe
+
+        Returns:
+        - customer_id
+        - 1 row dataframe
+        """
+    # Load the dictionary with indexes and SK_ID_CURR of test_df
+    my_dict = np.load('data/dict_idx_SK_ID_CURR.npy', allow_pickle='TRUE').item()
+    # Create lists of keys and values of my_dict
+    my_dict_keys = list(my_dict.keys())
+    my_dict_values = list(my_dict.values())
+    # Save customer index
+    cust_index = my_dict_keys[my_dict_values.index(customer_id)]
+    # Create the one row dataframe of index cust_index
+    one_row_df = pd.DataFrame(df.iloc[cust_index, :]).T
+    # Change 'SK_ID_CURR' feature into object dtype
+    one_row_df['SK_ID_CURR'] = one_row_df['SK_ID_CURR'].astype(object)
+
+    return cust_index, one_row_df
+
+
+def return_score_from_id(customer_id, df):
+    """
+        Return the predict_proba score from the customer id 'SK_ID_CURR
+
+        Arguments:
+        - customer_id : SK_ID_CURR value (int)
+        - df : dataframe
+
+        Returns:
+        - score
+        """
+    cust_index, one_row_df = return_cust_index_from_id(customer_id, df)
+    score = df['y_pred_proba'][cust_index]
+
+    return score
+
+
 def create_explainer(ml_model):
     """
     Creates a Tree explainer for machine learning model using shap values and lightgbm
@@ -82,7 +165,7 @@ def create_explainer(ml_model):
     """
 
     explainer = shap.TreeExplainer(ml_model)
-    base_value = explainer.expected_value[0]
+    base_value = round(explainer.expected_value[0], 3)
     return base_value, explainer
 
 
@@ -129,7 +212,7 @@ def shap_dependence_plot(explainer, X_test, df):
     )
 
 
-def shap_single_explanation(X_test, explanation, base_value, shap_values, temp_df):
+def shap_single_explanation(X_test, customer_id, df, base_value, shap_values, ml_model):
     """
     Compute a single force plot for an instance from the test set
 
@@ -147,6 +230,8 @@ def shap_single_explanation(X_test, explanation, base_value, shap_values, temp_d
     - title_single: title of shap force plot
 
     """
+    explanation, one_row_df = return_cust_index_from_id(customer_id, df)
+
     dataframe_single_explanation = pd.DataFrame(
         [shap_values[0][explanation]],
         columns=X_test.columns,
@@ -169,12 +254,12 @@ def shap_single_explanation(X_test, explanation, base_value, shap_values, temp_d
     ].values
     sum_list = []
     for (item1, item2) in zip(
-        feature_importance_single_explanation_name, list_ordered_values
+            feature_importance_single_explanation_name, list_ordered_values
     ):
         sum_list.append(" = ".join([item1, str(item2)]))
-    predicted_value = temp_df['y_pred_binary'][explanation]
-    title_single = "Feature importance: Base value: {} , Predicted value: {}".format(
-        base_value, predicted_value
+    predicted_class = (ml_model.predict_proba(X_test)[:, 1] >= 0.09).astype(int)[explanation]
+    title_single = "Feature importance: Base value = {} , Predicted class: {}".format(
+        base_value, predicted_class
     )
     return (
         feature_importance_single_explanation_value,
@@ -221,7 +306,7 @@ def create_explanations(ml_model, X_test, df):
         sum_list,
         color,
         title_single,
-    ) = shap_single_explanation(X_test, 0, base_value, shap_values, temp_df)
+    ) = shap_single_explanation(X_test, 100001, df, base_value, shap_values, ml_model)
 
     return (
         base_value,
@@ -235,3 +320,6 @@ def create_explanations(ml_model, X_test, df):
         color,
         list_shap_features,
     )
+
+
+

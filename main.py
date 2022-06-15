@@ -1,12 +1,7 @@
-import dash
-from dash import dcc, html
-import joblib
+from dash import Dash, dcc, html
 from dash.dependencies import Input, Output
-import pandas as pd
-import numpy as np
-import gunicorn
+import dash_daq
 import lightgbm
-from whitenoise import WhiteNoise   # for serving static files on Heroku
 
 from dashboard_functions.functions import (
     create_dcc,
@@ -14,6 +9,7 @@ from dashboard_functions.functions import (
     create_radio_shape,
     shap_single_explanation,
     create_explanations,
+    prepare_data, return_score_from_id,
 )
 from dashboard_functions.figures import (
     fig_scatter,
@@ -23,43 +19,14 @@ from dashboard_functions.figures import (
     fig_countplot,
     fig_overlaid_hist,
     fig_scatter_dependence,
+    fig_score, fig_gauge
 )
 
 # initialize the app
-app = dash.Dash(__name__)
+app = Dash(__name__)
 
-# Reference the underlying flask app (Used by gunicorn webserver in Heroku production deployment)
-server = app.server
-
-# Enable Whitenoise for serving static files from Heroku (the /static folder is seen as root by Heroku)
-server.wsgi_app = WhiteNoise(server.wsgi_app, root='static/')
-
-# load the dataframe
-test_df = pd.read_csv("data/test_df_1000.csv")
-
-# remove special characters in test_df feature names
-test_df.columns = test_df.columns.str.replace(':', '')
-test_df.columns = test_df.columns.str.replace(',', '')
-test_df.columns = test_df.columns.str.replace(']', '')
-test_df.columns = test_df.columns.str.replace('[', '')
-test_df.columns = test_df.columns.str.replace('{', '')
-test_df.columns = test_df.columns.str.replace('}', '')
-test_df.columns = test_df.columns.str.replace('"', '')
-
-# Load machine learning model
-model = joblib.load("data/model_lgbm_1.joblib")
-
-# Predict_proba and predict class for X_test
-X_test = test_df.drop(['index', 'SK_ID_CURR'], 1)
-# Predict proba
-y_pred_proba = np.round(model.predict_proba(X_test)[:, 1], 3)
-# Predict class with a threshold = 0.09
-y_pred_binary = (model.predict_proba(X_test)[:, 1] >= 0.09).astype(int)
-
-# Add predict_proba and predict_class into test_df
-test_df_predict = test_df
-test_df_predict['y_pred_proba'] = y_pred_proba
-test_df_predict['y_pred_binary'] = y_pred_binary
+# Prepare dataframes and return machine learning model
+X_test, test_df_predict, model, customer_ids = prepare_data()
 
 # Create explanations from model and X_test
 (
@@ -74,7 +41,6 @@ test_df_predict['y_pred_binary'] = y_pred_binary
     color,
     list_shap_features,
 ) = create_explanations(model, X_test, test_df_predict)
-
 
 # Define most important features for each type of features
 most_important_features = [x.replace('_shap', '') for x in feature_importance_name]
@@ -92,7 +58,6 @@ for feat in most_important_features:
 most_important_num_feat = num_feat[0:20]
 most_important_cat_feat = cat_feat[0:20]
 
-
 # Plots at the initialization
 style_plot = {
     "border-radius": "5px",
@@ -100,6 +65,7 @@ style_plot = {
     "box-shadow": "2px 2px 2px lightgrey",
     "margin": "3px",
 }
+
 # Define overlaid histogram figure
 fig1 = fig_overlaid_hist(test_df_predict,
                          test_df_predict.columns[0],
@@ -132,10 +98,18 @@ fig5 = fig_scatter_dependence(temp_df,
                               color="EXT_SOURCE_2")
 
 # Define local bar plot importance feature
-fig6 = fig_force_plot(feature_importance_single_explanation_value,
-                      sum_list,
+fig6 = fig_force_plot(feature_importance_single_explanation_value[0:15],
+                      sum_list[0:15],
                       color,
                       title_single)
+
+# Define predict_proba score plot for customers
+fig7 = fig_score(customer_ids[0],
+                 test_df_predict)
+
+# Define gauge score for customers
+fig8 = fig_gauge(test_df_predict, customer_ids[0])
+
 
 # application layout
 app.layout = html.Div(
@@ -153,6 +127,35 @@ app.layout = html.Div(
             id="header",
             className="row flex-display",
             style={"margin-bottom": "25px"}),
+        ###############################################################################################
+        ######################### Local feature importance / SHAP values #############################
+        html.Div(children=[
+            html.H4("Scoring and local feature importance using SHAP values",
+                    style={"textAlign": "center"}),
+            html.Div(children=[
+                html.Div(children=[
+                    html.Div(children=[
+                        html.P("Choose a customer ID")],
+                        className="two-thirds column"),
+                    dcc.Dropdown(id="customer",
+                                 options=[{"label": i, "value": i} for i in customer_ids],
+                                 value=customer_ids[0])],
+                    className="two-thirds column")],
+                className="row pretty_container"),
+            ######################### Feature importance plot #############################
+            html.Div(children=[
+                dcc.Graph(id="single-explanation-plot",
+                          figure=fig6,
+                          style=style_plot)],
+                className="nine columns pretty_container"),
+            ######################### Predict proba score #############################
+            html.Div(children=[
+                dcc.Graph(id="predict-proba-score",
+                          figure=fig7,
+                          style=style_plot)],
+                className="three columns pretty_container")
+        ]
+        ),
         ##################################################################################################
         ############################# 1D and 2D feature visualization ####################################
         html.Div(children=[
@@ -266,34 +269,51 @@ app.layout = html.Div(
                               figure=fig5,
                               style=style_plot)],
                     className="row")],
-                className="one-half column pretty_container")]),
-        ###############################################################################################
-        ######################### Local feature importance / SHAP values #############################
-        html.Div(children=[
-            html.H4("Local feature importance using SHAP values",
-                    style={"textAlign": "center"}),
-            ######################### Feature importance plot #############################
+                className="one-half column pretty_container"),
+            ######################### Predict proba score gauge ##########################
             html.Div(children=[
-                html.Div(children=[
-                    html.Div(children=[
-                        html.P("Choose a row from the Test set to explain")],
-                        className="two-thirds column"),
-                    html.Div(children=[
-                        dcc.Dropdown(id="explanation",
-                                     options=[{"label": i, "value": i} for i in range(len(X_test))],
-                                     value=0)],
-                        className="one-third column")],
-                    className="row"),
-                dcc.Graph(id="single-explanation-plot",
-                          figure=fig6,
+                dcc.Graph(id="predict-proba-gauge",
+                          figure=fig8,
                           style=style_plot)],
-                className="two-third column pretty_container")
-        ]
-        )
+                className="five columns pretty_container"),
+        ]),
+
     ]
     )
     ]
 )
+
+
+@app.callback(Output('predict-proba-gauge', 'value'), Input('customer', 'value'))
+def fig_gauge(customer_id):
+    value = return_score_from_id(customer_id, test_df_predict)
+    return value
+
+
+@app.callback(Output("single-explanation-plot", "figure"),
+              [Input("customer", "value")])
+def plot_single_explanation(customer_id):
+    (
+        feature_importance_single_explanation_value,
+        sum_list,
+        color,
+        title_single
+    ) = shap_single_explanation(explainer, X_test, customer_id, test_df_predict, model, base_value)
+    figure = fig_force_plot(
+        feature_importance_single_explanation_value[0:15],
+        sum_list[0:15],
+        color,
+        title_single)
+    return figure
+
+
+@app.callback(Output("predict-proba-score", "figure"),
+              [Input("customer", "value")])
+def plot_predict_proba_score(customer_id):
+    figure = fig_score(
+        customer_id,
+        test_df_predict)
+    return figure
 
 
 @app.callback(Output("histogram", "figure"), [Input("value_histo", "value")])
@@ -346,22 +366,6 @@ def plot_dependence_shap(id_shap_feature, id_feature1, id_feature2):
     return figure
 
 
-@app.callback(Output("single-explanation-plot", "figure"),
-             [Input("explanation", "value")])
-def plot_single_explanation(explanation):
-    (feature_importance_single_explanation_value,
-     sum_list,
-     color,
-     title_single) \
-        = shap_single_explanation(explainer, X_test, explanation, model, base_value)
-    figure = fig_force_plot(
-        feature_importance_single_explanation_value,
-        sum_list,
-        color,
-        title_single)
-    return figure
-
-
-# Run flask app
+# Run app
 if __name__ == "__main__":
-    app.run_server(debug=False, host='0.0.0.0', port=8050)
+    app.run(debug=True, port=1000)
