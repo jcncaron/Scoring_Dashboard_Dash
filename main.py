@@ -179,14 +179,14 @@ app.layout = html.Div(
             html.Div(children=[
                 html.Div(children=[
                     html.Div(children=[
-                        create_dcc(most_important_features[0:20],
+                        create_dcc(most_important_num_feat,
                                    "id-feature1",
-                                   most_important_features[0])],
+                                   most_important_num_feat[0])],
                         className="six columns"),
                     html.Div(children=[
-                        create_dcc(most_important_features[0:20],
+                        create_dcc(most_important_num_feat[0:20],
                                    "id-feature2",
-                                   most_important_features[1])],
+                                   most_important_num_feat[1])],
                         className="six columns")],
                     className="row pretty_container"),
                 html.Div(children=[
@@ -210,9 +210,9 @@ app.layout = html.Div(
                             className="row"),
                         html.Div(children=[
                             html.Div(children=[
-                                create_dcc(test_df_predict[most_important_num_feat].columns,
+                                create_dcc(most_important_num_feat,
                                            "value_histo",
-                                           test_df_predict[most_important_num_feat].columns[0])],
+                                           most_important_num_feat[0])],
                                 className="twelve columns")],
                             className="row"),
                         dcc.Graph(id="histogram",
