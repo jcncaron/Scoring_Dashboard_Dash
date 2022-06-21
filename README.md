@@ -1,6 +1,6 @@
 # Scoring_Dashboard_Dash
 
-App's root directory:
+root directory:
 ---------------------
 * main.py: app
   - Importing modules from dash library
