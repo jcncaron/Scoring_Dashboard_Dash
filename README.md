@@ -1,5 +1,14 @@
 # Scoring_Dashboard_Dash
 
+Repository to deploy an interactive dashboard concerning the ability of a single customer to repay or not his loan. The prediction is based on a lgbmclassifier model, trained on a dataset of about 300 k customers and 795 features.
+This dashboard consists in:
+- For in single customer, displaying the predict_proba score to not repay his loan,
+- displaying the predicted class : 0 (can repay the loan) if the predict_proba score is lower than the predict_proba threshold (= 0.09) ; 1 (can not repay the loan) if the predict proba score is higher than the predict_proba threshold
+- displaying local feature importance (using shap explainer)
+- displaying global feature importance
+- displaying the 1D distributions of the most important features and plotting the position of the selected single customer
+- displaying the 2D distributions of the most important features and plotting the position of the selected single customer
+
 root directory:
 ---------------------
 * main.py: app
